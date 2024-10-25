@@ -19,7 +19,7 @@ If you have already installed BOUT++ and want to use that rather than
 configure and build BOUT++ again, set `ELMPB_BUILD_BOUT` to `OFF` and pass
 CMake the path to the BOUT++ `build` directory e.g.
 
-    $ cmake . -B build -ELMPB_BUILD_BOUT=OFF -DCMAKE_PREFIX_PATH=$HOME/BOUT-dev/build
+    $ cmake . -B build -DELMPB_BUILD_BOUT=OFF -DCMAKE_PREFIX_PATH=$HOME/BOUT-dev/build
 
 # Running
 
