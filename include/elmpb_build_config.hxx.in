@@ -1,0 +1,12 @@
+/// THis file can contain build configurations
+
+#pragma once
+#ifndef ELMPB_BUILD_CONFIG_HXX
+#define ELMPB_BUILD_CONFIG_HXX
+
+namespace elmpb {
+  // Example configuration
+  //using SETTING=@SOME_SETTING@;
+}
+
+#endif // ELMPB_BUILD_CONFIG_HXX

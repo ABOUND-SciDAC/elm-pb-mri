@@ -1,0 +1,26 @@
+/// Information about the version of ELM-pb
+///
+/// The build system will update this file on every commit, which may
+/// result in files that include it getting rebuilt. Therefore it
+/// should be included in as few places as possible
+
+#ifndef ELMPB_REVISION_H
+#define ELMPB_REVISION_H
+
+namespace elmpb {
+namespace version {
+/// The git commit hash
+#ifndef ELMPB_REVISION
+constexpr auto revision = "@ELMPB_REVISION@";
+#else
+// Stringify value passed at compile time
+#define BUILDFLAG1_(x) #x
+#define BUILDFLAG(x) BUILDFLAG1_(x)
+constexpr auto revision = BUILDFLAG(ELMPB_REVISION);
+#undef BUILDFLAG1
+#undef BUILDFLAG
+#endif
+} // namespace version
+} // namespace elmpb
+
+#endif // ELMPB_REVISION_H
