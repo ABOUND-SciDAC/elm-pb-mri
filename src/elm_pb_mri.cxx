@@ -1734,7 +1734,7 @@ protected:
       if (terms_Gradperp_diffcoefs)
         {
           ddt(P) += D_perp * Delp2(P);
-          Vector3D grad_perp_diff = Grad_perp(D_perp);
+          Vector2D grad_perp_diff = Grad_perp(D_perp);
           grad_perp_diff.applyBoundary();
           mesh->communicate(grad_perp_diff);
           ddt(P) += V_dot_Grad(grad_perp_diff, P);
