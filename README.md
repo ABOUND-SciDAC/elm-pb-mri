@@ -25,3 +25,7 @@ CMake the path to the BOUT++ `build` directory e.g.
 
 After successfully compiling, the `build` subdirectory should contain
 the `elm-pb-mri` executable.
+
+Execute with the following:
+
+    $ ./elm-pb-mri -d examples/data
