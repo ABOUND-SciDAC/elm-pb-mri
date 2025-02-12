@@ -151,7 +151,6 @@ damp_width = -1       # Width of damping region (grid cells)
 damp_t_const = 1e-2  # Damping time constant
 
 ## Perpendicular pressure diffusion
-terms_Gradperp_diffcoefs = false
 diffusion_perp = -1.0   # Perpendicular pressure diffusion (< 0 = none)
 
 ## Parallel pressure diffusion

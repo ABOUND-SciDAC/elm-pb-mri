@@ -1203,6 +1203,9 @@ protected:
     }
     Jpar2.setBoundary("J");
 
+    // Implementing MRI split operators
+    setSplitOperatorMRI();
+
     return 0;
   }
 
@@ -1226,9 +1229,51 @@ protected:
     return result;
   }
 
-  bool first_run = true; // For printing out some diagnostics first time around
+  // RHS function that returns zeros
+  int rhs_zero() {
+    Field3D zero{0.0}; // All time derivatives will share this data
+    if (evolve_jpar) {
+      ddt(Jpar) = zero;
+    } else {
+      ddt(Psi) = zero;
+    }
 
-  int rhs(BoutReal t) override {
+    ddt(U) = zero;
+    ddt(P) = zero;
+
+    if (compress) {
+      ddt(Vpar) = zero;
+    }
+    return 0;
+  }
+
+  // Slow Explicit
+  int rhs_se(BoutReal) override {return rhs_zero();}
+
+  // Fast Explicit
+  int rhs_fe(BoutReal) override {return rhs_zero();}
+
+  // Slow Implicit
+  int rhs_si(BoutReal) override {
+    rhs_zero();
+
+    if (diffusion_perp > 0.0) { // Perpendicular diffusion
+      if (terms_Gradperp_diffcoefs) {
+        ddt(P) = D_perp * Delp2(P);
+        Vector2D grad_perp_diff = Grad_perp(D_perp);
+        grad_perp_diff.applyBoundary();
+        mesh->communicate(grad_perp_diff);
+        ddt(P) += V_dot_Grad(grad_perp_diff, P);
+
+      } else {
+        ddt(P) = diffusion_perp * Delp2(P);
+      }
+    }
+  }
+
+  // Fast Implicit
+  bool first_run = true; // For printing out some diagnostics first time around
+  int rhs_fi(BoutReal t) override {
     // Perform communications
     mesh->communicate(comms);
 
@@ -1728,19 +1773,6 @@ protected:
       mesh->communicate(tmpP2);
       tmpP2.applyBoundary();
       ddt(P) = diffusion_p4 * D2DY2(tmpP2);
-    }
-
-    if (diffusion_perp > 0.0) { // Perpendicular diffusion
-      if (terms_Gradperp_diffcoefs)
-        {
-          ddt(P) += D_perp * Delp2(P);
-          Vector2D grad_perp_diff = Grad_perp(D_perp);
-          grad_perp_diff.applyBoundary();
-          mesh->communicate(grad_perp_diff);
-          ddt(P) += V_dot_Grad(grad_perp_diff, P);
-        } else {
-          ddt(P) += diffusion_perp * Delp2(P);
-        }
     }
 
     if (heating_P > 0.0) { // heating source terms
