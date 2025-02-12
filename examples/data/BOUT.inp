@@ -11,7 +11,7 @@ wall_limit = 1.55  # wall time limit (in hours)
 zperiod = 15        # Fraction of a torus to simulate
 MZ = 16             # Number of points in Z
 
-grid = "cbm18_dens8.grid_nx68ny64.nc"  # Grid file
+grid = "examples/cbm18_dens8.grid_nx68ny64.nc"  # Grid file
 
 [mesh]
 
