@@ -1256,6 +1256,7 @@ protected:
   // Slow Implicit
   int rhs_si(BoutReal) override {
     rhs_zero();
+    mesh->communicate(P);
 
     if (diffusion_perp > 0.0) { // Perpendicular diffusion
       if (terms_Gradperp_diffcoefs) {
@@ -1269,6 +1270,7 @@ protected:
         ddt(P) = diffusion_perp * Delp2(P);
       }
     }
+    return 0;
   }
 
   // Fast Implicit
