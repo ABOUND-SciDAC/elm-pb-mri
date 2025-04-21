@@ -93,7 +93,7 @@ private:
   BoutReal diffusion_p4; // xqx: parallel hyper-viscous diffusion for pressure
   BoutReal diffusion_u4; // xqx: parallel hyper-viscous diffusion for vorticity
   BoutReal diffusion_a4; // xqx: parallel hyper-viscous diffusion for vector potential
-  
+
   BoutReal diffusion_perp;// Perpendicular pressure diffusion
   Field2D D_perp;// Perpendicular pressure diffusion coefficient
   bool terms_Gradperp_diffcoefs;
@@ -321,7 +321,7 @@ protected:
     // Load 2D profiles
     mesh->get(J0, "Jpar0");    // A / m^2
     mesh->get(P0, "pressure"); // Pascals
-    
+
     //mesh->get(D_perp, "D_perp"); // peperndicular diffusion coefficient
 
     // Load curvature term
@@ -605,7 +605,7 @@ protected:
     terms_Gradperp_diffcoefs = options["terms_Gradperp_diffcoefs)"]
 	.doc("Keep the gradient of Perpendicular pressure diffusion term")
 	.withDefault(false);
-    
+
     diffusion_par =
         options["diffusion_par"].doc("Parallel pressure diffusion").withDefault(-1.0);
     diffusion_p4 = options["diffusion_p4"]
@@ -1203,8 +1203,10 @@ protected:
     }
     Jpar2.setBoundary("J");
 
-    // Implementing MRI split operators
-    setSplitOperatorMRI();
+    if(globalOptions["solver"]["type"] == "arkode_mri")
+      setSplitOperatorMRI();
+    else
+      setSplitOperator();
 
     return 0;
   }
@@ -1788,7 +1790,7 @@ protected:
     if (sink_P > 0.0) {                                                  // sink terms
       ddt(P) -= sink_P * sink_tanhxr(P0, P, sp_width, sp_length) * Tbar; // sink
     }
-    
+
     ////////////////////////////////////////////////////
     // Compressional effects
 
@@ -1851,6 +1853,16 @@ protected:
 
     first_run = false;
 
+    return 0;
+  }
+
+  int convective(BoutReal t) override {
+    rhs_si(t);
+    return 0;
+  }
+
+  int diffusive(BoutReal t) override {
+    rhs_fi(t);
     return 0;
   }
 
