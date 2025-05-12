@@ -28,4 +28,4 @@ the `elm-pb-mri` executable.
 
 Execute with the following:
 
-    $ ./elm-pb-mri -d examples/data
+    $ ./elm-pb-mri -d examples/nonlinear
