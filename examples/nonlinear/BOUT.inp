@@ -9,7 +9,7 @@ timestep = 1       # time between outputs
 wall_limit = 1.55  # wall time limit (in hours)
 
 zperiod = 15        # Fraction of a torus to simulate
-MZ = 16             # Number of points in Z
+MZ = 64             # Number of points in Z
 
 grid = "examples/cbm18_dens8.grid_nx68ny64.nc"  # Grid file
 
@@ -112,7 +112,7 @@ relax_j_vac = false    # Relax to zero-current in the vacuum
 relax_j_tconst = 1e-2  # Time constant for vacuum relaxation
 
 ## Toroidal filtering
-filter_z = true   # remove all except one mode
+filter_z = false   # remove all except one mode
 filter_z_mode = 1  # Specify which harmonic to keep (1 = fundamental)
 low_pass_z = 16    # Keep up to and including this harmonic (-1 = keep all)
 zonal_flow = false    # keep this zonal harmonic?
