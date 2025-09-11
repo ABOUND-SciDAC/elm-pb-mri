@@ -4,14 +4,14 @@
 ##################################################
 # Global settings used by the core code
 
-nout = 100         # number of time-steps
+nout = 1000        # number of time-steps
 timestep = 1       # time between outputs
 wall_limit = 24.0  # wall time limit (in hours)
 
 zperiod = 5        # Fraction of a torus to simulate
 MZ = 64             # Number of points in Z
 
-grid = "examples/cbm18_dens8.grid_nx68ny64.nc"
+grid = "examples/cbm18_dens8.grid_nx68ny64_diff.nc"
 
 [mesh]
 
@@ -62,8 +62,9 @@ fft_measurement_flag = measure  # If using FFTW, perform tests to determine fast
 
 [solver]
 
-type = arkode
-treatment = explicit
+type = arkode_mri
+treatment = implicit
+inner_treatment = explicit
 
 # mudq, mldq, mukeep, mlkeep preconditioner options
 atol = 1.0e-8 # absolute tolerance
@@ -175,7 +176,10 @@ damp_width = -1       # Width of damping region (grid cells)
 damp_t_const = 1e-2  # Damping time constant
 
 ## Perpendicular pressure diffusion
-diffusion_perp = 1.0e-7   # Perpendicular pressure diffusion (< 0 = none)
+diffusion_perp = 1.0e-7   # Constant Perpendicular pressure diffusion (< 0 = none)
+load_diffcoefs = true     # if true, load diffusion coefficient from grid
+terms_Gradperp_diffcoefs = true # if true, with gradient term of diffusion coefficient 
+diff_fac = 100.0
 
 ## Parallel pressure diffusion
 
@@ -186,9 +190,9 @@ diffusion_a4 = -1e-05   # parallel hyper-viscous diffusion for vector potential 
 
 ## heat source in pressure in watts
 
-heating_P = -1   #   heat power in watts (< 0 = none)
+heating_P = 1.0    #   heat power in watts (< 0 = none)
 hp_width = 0.1     #   heat width, in percentage of nx (< 0 = none)
-hp_length = 0.3    #   heat length in percentage of nx (< 0 = none)
+hp_length = 0.4    #   heat length in percentage of nx (< 0 = none)
 
 ## sink rate in pressure
 

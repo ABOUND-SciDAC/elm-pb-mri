@@ -95,8 +95,10 @@ private:
   BoutReal diffusion_a4; // xqx: parallel hyper-viscous diffusion for vector potential
 
   BoutReal diffusion_perp;// Perpendicular pressure diffusion
-  Field2D D_perp;// Perpendicular pressure diffusion coefficient
-  bool terms_Gradperp_diffcoefs;
+  Field2D D_perp;         // Perpendicular pressure diffusion coefficient
+  BoutReal diff_fac;      // Perpendicular pressure diffusion factor
+  bool load_diffcoefs, terms_Gradperp_diffcoefs;
+  Field3D termP_diff_par, termP_diff_perp, termP_tur;
 
   BoutReal diffusion_par; // Parallel pressure diffusion
   BoutReal heating_P;     // heating power in pressure
@@ -322,7 +324,15 @@ protected:
     mesh->get(J0, "Jpar0");    // A / m^2
     mesh->get(P0, "pressure"); // Pascals
 
-    //mesh->get(D_perp, "D_perp"); // peperndicular diffusion coefficient
+    // Load peperndicular diffusion coefficient form grid
+    mesh->get(D_perp, "diff_perp"); 
+    /*if (load_diffcoefs) {
+      if (mesh->get(D_perp, "diff_perp")) { // m^2/s
+        throw BoutException("Error: Cannot read diff from grid\n");
+      }
+    } else {
+      D_perp = 0.0;
+    }*/
 
     // Load curvature term
     b0xcv.covariant = false;  // Read contravariant components
@@ -602,9 +612,13 @@ protected:
 
     diffusion_perp =
         options["diffusion_perp"].doc("Perpendicular pressure diffusion").withDefault(-1.0);
-    terms_Gradperp_diffcoefs = options["terms_Gradperp_diffcoefs)"]
+    load_diffcoefs =
+        options["load_diffcoefs"].doc("load Perpendicular pressure diffusion from grid").withDefault(false);
+    terms_Gradperp_diffcoefs = options["terms_Gradperp_diffcoefs"]
 	.doc("Keep the gradient of Perpendicular pressure diffusion term")
 	.withDefault(false);
+    diff_fac =
+        options["diff_fac"].doc("Perpendicular pressure diffusion factor").withDefault(1.0);
 
     diffusion_par =
         options["diffusion_par"].doc("Parallel pressure diffusion").withDefault(-1.0);
@@ -859,6 +873,15 @@ protected:
       output.write("    diffusion_par: {:e}\n", diffusion_par);
       SAVE_ONCE(diffusion_par);
     }
+    
+    if (diffusion_perp > 0.0) {
+      output.write("    diffusion_perp: {:e}\n", diffusion_perp);
+      SAVE_ONCE(diffusion_perp);
+      dump.add(D_perp,"D_perp",1);
+      dump.add(termP_diff_perp,"termP_diff_perp",1);
+      dump.add(termP_diff_par,"termP_diff_par",1);
+      dump.add(termP_tur,"termP_tur",1);
+    }
 
     // xqx: parallel hyper-viscous diffusion for pressure
     if (diffusion_p4 > 0.0) {
@@ -909,6 +932,8 @@ protected:
     P0 = 2.0 * MU0 * P0 / (Bbar * Bbar);
     V0 = V0 / Va;
     Dphi0 *= Tbar;
+
+    D_perp /= Lbar*Lbar/Tbar;
 
     b0xcv.x /= Bbar;
     b0xcv.y *= Lbar * Lbar;
@@ -1261,15 +1286,19 @@ protected:
     mesh->communicate(P);
 
     if (diffusion_perp > 0.0) { // Perpendicular diffusion
-      if (terms_Gradperp_diffcoefs) {
-        ddt(P) = D_perp * Delp2(P);
-        Vector2D grad_perp_diff = Grad_perp(D_perp);
-        grad_perp_diff.applyBoundary();
-        mesh->communicate(grad_perp_diff);
-        ddt(P) += V_dot_Grad(grad_perp_diff, P);
-
+      if (load_diffcoefs) {
+        ddt(P) = diff_fac * D_perp * Delp2(P);
+	termP_diff_perp = diff_fac * D_perp * Delp2(P);
+	if (terms_Gradperp_diffcoefs) {
+          Vector2D grad_perp_diff = Grad_perp(diff_fac * D_perp);
+          grad_perp_diff.applyBoundary();
+          mesh->communicate(grad_perp_diff);
+          ddt(P) += V_dot_Grad(grad_perp_diff, P);
+	  termP_diff_perp += V_dot_Grad(grad_perp_diff, P);
+	}
       } else {
         ddt(P) = diffusion_perp * Delp2(P);
+	termP_diff_perp = diffusion_perp * Delp2(P);
       }
     }
     return 0;
@@ -1752,17 +1781,21 @@ protected:
     ddt(P) = 0.0;
     if (evolve_pressure) {
       ddt(P) -= b0xGrad_dot_Grad(phi, P0);
+      termP_tur = -b0xGrad_dot_Grad(phi, P0);
 
       if (diamag_phi0) { // Equilibrium flow
         ddt(P) -= b0xGrad_dot_Grad(phi0, P);
+        termP_tur -= b0xGrad_dot_Grad(phi0, P);
       }
 
       if (withflow) { // net flow
         ddt(P) -= V_dot_Grad(V0net, P);
+	      termP_tur -= V_dot_Grad(V0net, P);
       }
 
       if (nonlinear) { // Advection
         ddt(P) -= bracket(phi, P, bm_exb) * B0;
+	      termP_tur -= bracket(phi, P, bm_exb) * B0;
       }
     }
 
@@ -1770,6 +1803,7 @@ protected:
 
     if (diffusion_par > 0.0) { // Parallel diffusion
       ddt(P) += diffusion_par * Grad2_par2(P);
+      termP_diff_par = diffusion_par * Grad2_par2(P);
     }
 
     if (diffusion_p4 > 0.0) { // parallel hyper-viscous diffusion for pressure
