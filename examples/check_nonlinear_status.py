@@ -28,7 +28,7 @@ filter_n0 = 1   # True
 
 var = 'P'
 var0 = "{}0".format(var)    # equilibrium profiles
-case = 'nonlinear'    # case name
+case = 'crash'  # case name
 path = case     # case dmp file path
 parts = (['rms_cs', 'rms_vs_t', 'data0_dc', 'fn', 'elmsize']
          if var == 'P' else ['rms_cs', 'rms_vs_t', 'fn'])
@@ -38,7 +38,7 @@ norm = 1 # ['3f', '6f', float], normalization factor for `var`, used in elmsize
 
 ## plot setting
 nlevels = 40    # nlevels for contourf plot
-tevery = 30     # plot fn & p0_dc every t step
+tevery = 100    # plot fn & p0_dc every t step
 
 db_path = 'db/{}'.format(case.split('/')[-1])
 if (savedata or savefig) and (not os.path.exists(db_path)):
@@ -171,17 +171,17 @@ if 'rms_vs_t' in parts:
 
 if 'data0_dc' in parts:
     print("========plot data0_dc")
-    plt.figure("data0_dc")
+    plt.figure("data0_dc", figsize=(30, 10))
     plt.clf()
     mpl.rcParams['axes.prop_cycle'] = cycler(
         color=boutv.color_list(len(t_arr)))
     for i in t_arr: plt.plot(psi, data0[:, oyind]+dc[:, oyind, i].T)
-    plt.legend(t_arr, loc=0, title=r'time/{}$\tau_A$'.format(
-        timestep if timestep != 1 else ''), ncol=3, fontsize=18)
+    plt.legend(t_arr, loc='center left', bbox_to_anchor=(1.02, 0.5), title=r'time/{}$\tau_A$'.format(
+        timestep if timestep != 1 else ''), ncol=2, fontsize=16)
     plt.xlabel('$\psi_n$')
     plt.title('$\hat P$, y{}'.format(oyind))
     mpl.rcParams['axes.prop_cycle'] = cycler(color=boutv.colors_default)
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
     plt.show()
     if boutf.get_yesno('update fig', timeout=timeout):
         boutf.run_command()
@@ -191,7 +191,7 @@ if 'data0_dc' in parts:
 
 if 'fn' in parts:
     print('========plot Amp. vs n')
-    plt.figure('fn')
+    plt.figure('fn', figsize=(30, 10))
     plt.clf()
     mpl.rcParams['axes.prop_cycle'] = cycler(
         color=boutv.color_list(len(t_arr)))
@@ -199,9 +199,9 @@ if 'fn' in parts:
              fpa[xpeak, oyind, :lowpass+1, t_arr].T)
     plt.xlabel('toroidal mode number')
     plt.title('${}_n$'.format(var))
-    plt.legend(t_arr, loc=0, title=r'time/{}$\tau_A$'.format(
-        timestep if timestep != 1 else ''), ncol=3, fontsize=18)
-    plt.tight_layout()
+    plt.legend(t_arr, loc='center left', bbox_to_anchor=(1.02, 0.5), title=r'time/{}$\tau_A$'.format(
+        timestep if timestep != 1 else ''), ncol=2, fontsize=16)
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
     if boutf.get_yesno('update fig', timeout=timeout):
         boutf.run_command()
     if savefig:
