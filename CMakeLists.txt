@@ -42,7 +42,8 @@ message(STATUS "Git revision: ${ELMPB_REVISION}")
 # BOUT++ is a dependency
 option(ELMPB_BUILD_BOUT "Build BOUT++ in external/BOUT-dev" ON)
 if(ELMPB_BUILD_BOUT)
-  set(BOUT_BUILD_EXAMPLES, OFF) # Don't create example makefiles
+  set(BOUT_BUILD_EXAMPLES OFF CACHE BOOL "Don't create example makefiles" FORCE)
+  set(BOUT_USE_NLS OFF CACHE BOOL "Disable gettext so linking does not need libintl" FORCE)
   add_subdirectory(external/BOUT-dev)
 else()
   find_package(bout++ REQUIRED)
