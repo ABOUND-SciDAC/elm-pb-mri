@@ -25,9 +25,6 @@
 
 #include <bout/field_factory.hxx>
 
-#include "revision.hxx" // Defines elmpb::version::revision
-#include "elmpb_build_config.hxx" // Can define config settings
-
 CELL_LOC loc = CELL_CENTRE;
 
 /// Set default options
@@ -93,20 +90,21 @@ private:
   BoutReal diffusion_p4; // xqx: parallel hyper-viscous diffusion for pressure
   BoutReal diffusion_u4; // xqx: parallel hyper-viscous diffusion for vorticity
   BoutReal diffusion_a4; // xqx: parallel hyper-viscous diffusion for vector potential
-
+  
   BoutReal diffusion_perp;// Perpendicular pressure diffusion
   Field2D D_perp;         // Perpendicular pressure diffusion coefficient
   BoutReal diff_fac;      // Perpendicular pressure diffusion factor
   bool load_diffcoefs, terms_Gradperp_diffcoefs;
-  Field3D termP_diff_par, termP_diff_perp, termP_tur;
+  Field3D termP_diff_par, termP_diff_perp, termP_tur, termP_heat1, termP_heat2, termP_sink1, termP_sink2;
+  Field2D heat_diff, sink_diff;
 
   BoutReal diffusion_par; // Parallel pressure diffusion
-  BoutReal heating_P;     // heating power in pressure
+  BoutReal heating_P, heat_P_diff;     // heating power in pressure
   BoutReal hp_width;      // heating profile radial width in pressure
   BoutReal hp_length;     // heating radial domain in pressure
-  BoutReal sink_P;        // sink in pressure
-  BoutReal sp_width;      // sink profile radial width in pressure
-  BoutReal sp_length;     // sink radial domain in pressure
+  BoutReal sink_P, sink_P_diff;        // sink in pressure
+  BoutReal sp_width, spd_width;      // sink profile radial width in pressure
+  BoutReal sp_length, spd_length;     // sink radial domain in pressure
 
   BoutReal sink_Ul;    // left edge sink in vorticity
   BoutReal su_widthl;  // left edge sink profile radial width in vorticity
@@ -315,7 +313,6 @@ protected:
     output.write("Solving high-beta flute reduced equations\n");
     output.write("\tFile    : {:s}\n", __FILE__);
     output.write("\tCompiled: {:s} at {:s}\n", __DATE__, __TIME__);
-    output.write("\nELM-pb git version: {:s}\n", elmpb::version::revision);
 
     //////////////////////////////////////////////////////////////
     // Load data from the grid
@@ -323,17 +320,9 @@ protected:
     // Load 2D profiles
     mesh->get(J0, "Jpar0");    // A / m^2
     mesh->get(P0, "pressure"); // Pascals
-
-    // Load peperndicular diffusion coefficient form grid
+    
     mesh->get(D_perp, "diff_perp"); 
-    /*if (load_diffcoefs) {
-      if (mesh->get(D_perp, "diff_perp")) { // m^2/s
-        throw BoutException("Error: Cannot read diff from grid\n");
-      }
-    } else {
-      D_perp = 0.0;
-    }*/
-
+    
     // Load curvature term
     b0xcv.covariant = false;  // Read contravariant components
     mesh->get(b0xcv, "bxcv"); // mixed units x: T y: m^-2 z: m^-2
@@ -613,13 +602,14 @@ protected:
     diffusion_perp =
         options["diffusion_perp"].doc("Perpendicular pressure diffusion").withDefault(-1.0);
     load_diffcoefs =
-        options["load_diffcoefs"].doc("load Perpendicular pressure diffusion from grid").withDefault(false);
+        options["load_diffcoefs"].doc("load Perpendicular pressure diffusion from grid")
+	.withDefault(false);
     terms_Gradperp_diffcoefs = options["terms_Gradperp_diffcoefs"]
 	.doc("Keep the gradient of Perpendicular pressure diffusion term")
 	.withDefault(false);
     diff_fac =
         options["diff_fac"].doc("Perpendicular pressure diffusion factor").withDefault(1.0);
-
+    
     diffusion_par =
         options["diffusion_par"].doc("Parallel pressure diffusion").withDefault(-1.0);
     diffusion_p4 = options["diffusion_p4"]
@@ -635,6 +625,7 @@ protected:
     // heating factor in pressure
     // heating power in pressure
     heating_P = options["heating_P"].withDefault(-1.0);
+    heat_P_diff = options["heat_P_diff"].withDefault(-100.0);
     // the percentage of radial grid points for heating profile radial
     // width in pressure
     hp_width = options["hp_width"].withDefault(0.1);
@@ -645,12 +636,15 @@ protected:
     // sink factor in pressure
     // sink in pressure
     sink_P = options["sink_P"].withDefault(-1.0);
+    sink_P_diff = options["sink_P_diff"].withDefault(-1.0);
     // the percentage of radial grid points for sink profile radial
     // width in pressure
     sp_width = options["sp_width"].withDefault(0.05);
+    spd_width = options["spd_width"].withDefault(0.05);
     // the percentage of radial grid points for sink profile radial
     // domain in pressure
     sp_length = options["sp_length"].withDefault(0.04);
+    spd_length = options["spd_length"].withDefault(0.04);
 
     // left edge sink factor in vorticity
     // left edge sink in vorticity
@@ -873,14 +867,27 @@ protected:
       output.write("    diffusion_par: {:e}\n", diffusion_par);
       SAVE_ONCE(diffusion_par);
     }
-    
+
     if (diffusion_perp > 0.0) {
       output.write("    diffusion_perp: {:e}\n", diffusion_perp);
       SAVE_ONCE(diffusion_perp);
-      dump.add(D_perp,"D_perp",1);
+      dump.add(D_perp,"D_perp",0);
       dump.add(termP_diff_perp,"termP_diff_perp",1);
       dump.add(termP_diff_par,"termP_diff_par",1);
       dump.add(termP_tur,"termP_tur",1);
+    }
+    
+    if (heating_P > 0.0) { // heating source terms
+      dump.add(termP_heat1,"termP_heat1",0);
+      dump.add(termP_heat2,"termP_heat2",1);
+      dump.add(heat_diff,"heat_diff",0);
+    }
+    if (sink_P > 0.0) {                                                   
+      dump.add(termP_sink1,"termP_sink1",1);
+    }
+    if (sink_P_diff > 0.0) {                                                   
+      dump.add(termP_sink2,"termP_sink2",1);
+      dump.add(sink_diff,"sink_diff",0);
     }
 
     // xqx: parallel hyper-viscous diffusion for pressure
@@ -933,8 +940,6 @@ protected:
     V0 = V0 / Va;
     Dphi0 *= Tbar;
 
-    D_perp /= Lbar*Lbar/Tbar;
-
     b0xcv.x /= Bbar;
     b0xcv.y *= Lbar * Lbar;
     b0xcv.z *= Lbar * Lbar;
@@ -946,6 +951,8 @@ protected:
     hthe /= Lbar;
     metric->dx /= Lbar * Lbar * Bbar;
     I *= Lbar * Lbar * Bbar;
+    
+    D_perp /= Lbar * Lbar / Tbar;
 
     if (constn0) {
       T0_fake_prof = false;
@@ -1228,11 +1235,6 @@ protected:
     }
     Jpar2.setBoundary("J");
 
-    if(globalOptions["solver"]["type"] == "arkode_mri")
-      setSplitOperatorMRI();
-    else
-      setSplitOperator();
-
     return 0;
   }
 
@@ -1256,57 +1258,9 @@ protected:
     return result;
   }
 
-  // RHS function that returns zeros
-  int rhs_zero() {
-    Field3D zero{0.0}; // All time derivatives will share this data
-    if (evolve_jpar) {
-      ddt(Jpar) = zero;
-    } else {
-      ddt(Psi) = zero;
-    }
-
-    ddt(U) = zero;
-    ddt(P) = zero;
-
-    if (compress) {
-      ddt(Vpar) = zero;
-    }
-    return 0;
-  }
-
-  // Slow Explicit
-  int rhs_se(BoutReal) override {return rhs_zero();}
-
-  // Fast Explicit
-  int rhs_fe(BoutReal) override {return rhs_zero();}
-
-  // Slow Implicit
-  int rhs_si(BoutReal) override {
-    rhs_zero();
-    mesh->communicate(P);
-
-    if (diffusion_perp > 0.0) { // Perpendicular diffusion
-      if (load_diffcoefs) {
-        ddt(P) = diff_fac * D_perp * Delp2(P);
-	termP_diff_perp = diff_fac * D_perp * Delp2(P);
-	if (terms_Gradperp_diffcoefs) {
-          Vector2D grad_perp_diff = Grad_perp(diff_fac * D_perp);
-          grad_perp_diff.applyBoundary();
-          mesh->communicate(grad_perp_diff);
-          ddt(P) += V_dot_Grad(grad_perp_diff, P);
-	  termP_diff_perp += V_dot_Grad(grad_perp_diff, P);
-	}
-      } else {
-        ddt(P) = diffusion_perp * Delp2(P);
-	termP_diff_perp = diffusion_perp * Delp2(P);
-      }
-    }
-    return 0;
-  }
-
-  // Fast Implicit
   bool first_run = true; // For printing out some diagnostics first time around
-  int rhs_fi(BoutReal t) override {
+
+  int rhs(BoutReal t) override {
     // Perform communications
     mesh->communicate(comms);
 
@@ -1785,17 +1739,17 @@ protected:
 
       if (diamag_phi0) { // Equilibrium flow
         ddt(P) -= b0xGrad_dot_Grad(phi0, P);
-        termP_tur -= b0xGrad_dot_Grad(phi0, P);
+	termP_tur -= b0xGrad_dot_Grad(phi0, P);
       }
 
       if (withflow) { // net flow
         ddt(P) -= V_dot_Grad(V0net, P);
-	      termP_tur -= V_dot_Grad(V0net, P);
+	termP_tur -= V_dot_Grad(V0net, P);
       }
 
       if (nonlinear) { // Advection
         ddt(P) -= bracket(phi, P, bm_exb) * B0;
-	      termP_tur -= bracket(phi, P, bm_exb) * B0;
+	termP_tur -= bracket(phi, P, bm_exb) * B0;
       }
     }
 
@@ -1813,18 +1767,48 @@ protected:
       ddt(P) = diffusion_p4 * D2DY2(tmpP2);
     }
 
+    if (diffusion_perp > 0.0) { // Perpendicular diffusion
+      if (load_diffcoefs) {
+	ddt(P) += diff_fac * D_perp * Delp2(P);
+        termP_diff_perp = diff_fac * D_perp * Delp2(P);
+	if (terms_Gradperp_diffcoefs) {
+          Vector2D grad_perp_diff = Grad_perp(diffusion_perp * D_perp);
+          grad_perp_diff.applyBoundary();
+          mesh->communicate(grad_perp_diff);
+          ddt(P) += V_dot_Grad(grad_perp_diff, P);
+ 	  termP_diff_perp += V_dot_Grad(grad_perp_diff, P);
+	} 
+      } else {
+        ddt(P) += diffusion_perp * Delp2(P);
+	termP_diff_perp = diffusion_perp * Delp2(P);
+      }
+    }
+
     if (heating_P > 0.0) { // heating source terms
       BoutReal pnorm = P0(0, 0);
       ddt(P) += heating_P * source_expx2(P0, 2. * hp_width, 0.5 * hp_length)
                 * (Tbar / pnorm); // heat source
-      ddt(P) += (100. * source_tanhx(P0, hp_width, hp_length) + 0.01) * metric->g11
-                * D2DX2(P) * (Tbar / Lbar / Lbar); // radial diffusion
+      termP_heat1 = heating_P * source_expx2(P0, 2. * hp_width, 0.5 * hp_length) * (Tbar / pnorm);
     }
+    if (heat_P_diff > 0.0) { // radial diffusion heat terms
+      ddt(P) += (heat_P_diff * source_tanhx(P0, hp_width, hp_length) + 0.01) * metric->g11
+                * D2DX2(P) * (Tbar / Lbar / Lbar); // radial diffusion
+      termP_heat2 = (heat_P_diff * source_tanhx(P0, hp_width, hp_length) + 0.01) * metric->g11 * D2DX2(P) * (Tbar / Lbar / Lbar);
+      heat_diff = (heat_P_diff * source_tanhx(P0, hp_width, hp_length) + 0.01) * (Tbar / Lbar / Lbar);
+      }
 
     if (sink_P > 0.0) {                                                  // sink terms
       ddt(P) -= sink_P * sink_tanhxr(P0, P, sp_width, sp_length) * Tbar; // sink
+      termP_sink1 = -sink_P * sink_tanhxr(P0, P, sp_width, sp_length) * Tbar;
+    } 
+    if (sink_P_diff > 0.0) { // radial diffusion sink terms
+      ddt(P) += sink_P_diff * sink_tanhx(P0, spd_width, spd_length) * metric->g11
+                * D2DX2(P) * (Tbar / Lbar / Lbar);
+      termP_sink2 = sink_P_diff * sink_tanhx(P0, spd_width, spd_length) * metric->g11
+                * D2DX2(P) * (Tbar / Lbar / Lbar); 
+      sink_diff = sink_P_diff * sink_tanhx(P0, spd_width, spd_length) * (Tbar / Lbar / Lbar);  
     }
-
+    
     ////////////////////////////////////////////////////
     // Compressional effects
 
@@ -1887,16 +1871,6 @@ protected:
 
     first_run = false;
 
-    return 0;
-  }
-
-  int convective(BoutReal t) override {
-    rhs_si(t);
-    return 0;
-  }
-
-  int diffusive(BoutReal t) override {
-    rhs_fi(t);
     return 0;
   }
 
