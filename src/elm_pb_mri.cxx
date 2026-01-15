@@ -1235,6 +1235,11 @@ protected:
     }
     Jpar2.setBoundary("J");
 
+    if(globalOptions["solver"]["type"] == "arkode_mri")
+      setSplitOperatorMRI();
+    else
+      setSplitOperator();
+
     return 0;
   }
 
@@ -1258,9 +1263,57 @@ protected:
     return result;
   }
 
-  bool first_run = true; // For printing out some diagnostics first time around
+  // RHS function that returns zeros
+  int rhs_zero() {
+    Field3D zero{0.0}; // All time derivatives will share this data
+    if (evolve_jpar) {
+      ddt(Jpar) = zero;
+    } else {
+      ddt(Psi) = zero;
+    }
 
-  int rhs(BoutReal t) override {
+    ddt(U) = zero;
+    ddt(P) = zero;
+
+    if (compress) {
+      ddt(Vpar) = zero;
+    }
+    return 0;
+  }
+
+  // Slow Explicit
+  int rhs_se(BoutReal) override {return rhs_zero();}
+
+  // Fast Explicit
+  int rhs_fe(BoutReal) override {return rhs_zero();}
+
+  // Slow Implicit
+  int rhs_si(BoutReal) override {
+    rhs_zero();
+    mesh->communicate(P);
+
+    if (diffusion_perp > 0.0) { // Perpendicular diffusion
+      if (load_diffcoefs) {
+	      ddt(P) += diff_fac * D_perp * Delp2(P);
+        termP_diff_perp = diff_fac * D_perp * Delp2(P);
+        if (terms_Gradperp_diffcoefs) {
+                Vector2D grad_perp_diff = Grad_perp(diffusion_perp * D_perp);
+                grad_perp_diff.applyBoundary();
+                mesh->communicate(grad_perp_diff);
+                ddt(P) += V_dot_Grad(grad_perp_diff, P);
+          termP_diff_perp += V_dot_Grad(grad_perp_diff, P);
+        }
+      } else {
+        ddt(P) += diffusion_perp * Delp2(P);
+	      termP_diff_perp = diffusion_perp * Delp2(P);
+      }
+    }
+    return 0;
+  }
+
+  // Fast Implicit
+  bool first_run = true; // For printing out some diagnostics first time around
+  int rhs_fi(BoutReal t) override {
     // Perform communications
     mesh->communicate(comms);
 
@@ -1767,23 +1820,6 @@ protected:
       ddt(P) = diffusion_p4 * D2DY2(tmpP2);
     }
 
-    if (diffusion_perp > 0.0) { // Perpendicular diffusion
-      if (load_diffcoefs) {
-	ddt(P) += diff_fac * D_perp * Delp2(P);
-        termP_diff_perp = diff_fac * D_perp * Delp2(P);
-	if (terms_Gradperp_diffcoefs) {
-          Vector2D grad_perp_diff = Grad_perp(diffusion_perp * D_perp);
-          grad_perp_diff.applyBoundary();
-          mesh->communicate(grad_perp_diff);
-          ddt(P) += V_dot_Grad(grad_perp_diff, P);
- 	  termP_diff_perp += V_dot_Grad(grad_perp_diff, P);
-	} 
-      } else {
-        ddt(P) += diffusion_perp * Delp2(P);
-	termP_diff_perp = diffusion_perp * Delp2(P);
-      }
-    }
-
     if (heating_P > 0.0) { // heating source terms
       BoutReal pnorm = P0(0, 0);
       ddt(P) += heating_P * source_expx2(P0, 2. * hp_width, 0.5 * hp_length)
@@ -1795,7 +1831,7 @@ protected:
                 * D2DX2(P) * (Tbar / Lbar / Lbar); // radial diffusion
       termP_heat2 = (heat_P_diff * source_tanhx(P0, hp_width, hp_length) + 0.01) * metric->g11 * D2DX2(P) * (Tbar / Lbar / Lbar);
       heat_diff = (heat_P_diff * source_tanhx(P0, hp_width, hp_length) + 0.01) * (Tbar / Lbar / Lbar);
-      }
+    }
 
     if (sink_P > 0.0) {                                                  // sink terms
       ddt(P) -= sink_P * sink_tanhxr(P0, P, sp_width, sp_length) * Tbar; // sink
@@ -1871,6 +1907,16 @@ protected:
 
     first_run = false;
 
+    return 0;
+  }
+
+  int convective(BoutReal t) override {
+    rhs_si(t);
+    return 0;
+  }
+
+  int diffusive(BoutReal t) override {
+    rhs_fi(t);
     return 0;
   }
 
