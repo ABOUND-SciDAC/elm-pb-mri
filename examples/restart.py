@@ -1382,4 +1382,3 @@ def shift_v3_to_v4(
                     new.write("nz", nz)
                 newdata = BoutArray(newdata, attributes=attributes)
                 new.write(var, newdata)
-

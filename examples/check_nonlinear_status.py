@@ -246,4 +246,3 @@ if 'elmsize' in parts:
         boutv.savefig('{}/{}_elmsize'.format(db_path, var))
 
 plt.show()
-
