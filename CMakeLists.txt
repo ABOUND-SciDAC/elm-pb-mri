@@ -6,7 +6,7 @@ else()
   cmake_policy(VERSION 3.12)
 endif()
 
-project(elm-pb-mri LANGUAGES CXX C)
+project(6f_landau LANGUAGES CXX C)
 
 # Extra CMake scripts in cmake/ subdirectory
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
@@ -50,17 +50,17 @@ else()
 endif()
 
 set(ELMPB_SOURCES
-    src/elm_pb_mri.cxx
+    src/6f_landau.cxx
     )
 
 # The main executable target
-add_executable(elm-pb-mri
+add_executable(6f_landau
                ${ELMPB_SOURCES}
                ${CMAKE_CURRENT_BINARY_DIR}/include/revision.hxx)
 
-target_link_libraries(elm-pb-mri PRIVATE bout++::bout++)
+target_link_libraries(6f_landau PRIVATE bout++::bout++)
 
-target_include_directories(elm-pb-mri PUBLIC
+target_include_directories(6f_landau PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -109,4 +109,4 @@ endif()
 configure_file(include/elmpb_build_config.hxx.in include/elmpb_build_config.hxx)
 
 # Installation
-install(TARGETS elm-pb-mri)
+install(TARGETS 6f_landau)
