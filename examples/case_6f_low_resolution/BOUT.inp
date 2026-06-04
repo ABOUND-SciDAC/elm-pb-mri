@@ -71,7 +71,7 @@ include_yguards = false
 # FFTs
 
 [fft]
-fft_measurement_flag = measure # If using FFTW, perform tests to determine fastest method
+fft_measurement_flag = estimate # If using FFTW, perform tests to determine fastest method
 
 ##################################################
 # Solver settings
@@ -80,12 +80,19 @@ fft_measurement_flag = measure # If using FFTW, perform tests to determine faste
 
 type = arkode
 treatment = explicit
-atol = 1.0e-11                 # absolute tolerance
-rtol = 1.0e-5                  # relative tolerance
+atol = 1.0e-13                 # absolute tolerance
+rtol = 1.0e-8                  # relative tolerance
 use_precon = false             # Use preconditioner: User-supplied or BBD
 mxstep = 50000                 # Max number of internal steps between outputs
 use_vector_abstol = true
+print_allstats = true
 maxl = 20
+
+#small_nef = 1
+#etamxf = 0.01
+#eta_min = 0.001
+#mx_growth = 2.0
+#error_bias = 10.0
 
 monitor_timestep = true        # One step mode
 print_allstats = true          # Print all integrator stats at each evolve call 
@@ -95,22 +102,22 @@ use_temporal_filtering = false
 
 # Atol values
 [U]   # vorticity
-atol = 1.0e-11        # Umax: 6.28750939633446, Umean: 0.10145615031246265, Umin: 0.0
+atol = 1.0e-13
 
 [Ni]  # number density
-atol = 1.0e-12        # Nimax: 0.33836787635893406, Nimean: 0.01826401737809151, Nimin: 0.0
+atol = 1.0e-14
 
 [Ti]  # ion temperature
-atol = 1.0e-12        # Ti_max: 0.3388605427040339, Ti_mean: 0.01167897933975127, Ti_min: -0.3327271946513613
+atol = 1.0e-14
 
 [Te]  # electron density
-atol = 1.0e-12        # Te_max: 0.1860159506339844, Te_mean: 0.012940532344857522, Te_min: -0.10065124152296345
+atol = 1.0e-14
 
 [Apar] # Vector potential
-atol = 1.0e-16        # Apar_max: 5.579995527326739e-05, Apar_mean: 1.4340979445866234e-06, Apar_min: 0.0
+atol = 1.0e-18
 
 [Vipar]
-atol = 1.0e-13        # Vipar_max: 0.01774160487877213, Vipar_mean: 0.0010444905011199053, Vipar_min: 0.0
+atol = 1.0e-15
 
 ##################################################
 # settings for high-beta reduced MHD
