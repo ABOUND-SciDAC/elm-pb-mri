@@ -88,10 +88,11 @@ use_vector_abstol = true
 print_allstats = true
 maxl = 20
 
-small_nef = 1
-etamxf = 0.01
-eta_min = 0.001
-mx_growth = 2.0
+#small_nef = 1
+#etamxf = 0.01
+#eta_min = 0.001
+#mx_growth = 2.0
+#error_bias = 10.0
 
 monitor_timestep = true        # One step mode
 print_allstats = true          # Print all integrator stats at each evolve call 
