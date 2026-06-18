@@ -113,16 +113,13 @@ BoutReal limitFree(BoutReal fm, BoutReal fc, BoutReal mode) {
     throw BoutException("Unknown boundary mode");
   }
 
-  return fp;  // Extrapolation
-
-
 #if CHECKLEVEL >= 2
   if (!std::isfinite(fp)) {
     throw BoutException("SheathBoundary limitFree: {}, {} -> {}", fm, fc, fp);
   }
 #endif
 
-  return fp;
+  return fp;  // Extrapolation
 }
 
 } // namespace
@@ -663,8 +660,7 @@ private:
 
   BoutReal TanH(BoutReal a)
   {
-    BoutReal temp = exp(a);
-    return ((temp - 1.0 / temp) / (temp + 1.0 / temp));
+    return tanh(a);
   }
 
   const Field3D mask_x_1d(bool BoutRealspace, int mask_flag, BoutReal mask_width, BoutReal mask_length) {
@@ -693,9 +689,10 @@ private:
             result(jx,jy,jz) = 0.;
         }
     result /= max(result, true);
-    if (BoutRealspace)
-      //result = result.shiftZ(false); // Shift back
-    
+    if (BoutRealspace) {
+      // result = result.shiftZ(false); // Shift back
+    }
+
     // Need to communicate boundaries
     mesh->communicate(result);
  
@@ -755,7 +752,7 @@ private:
             f(jx,jy,jz) = limit - f0(jx,jy);
           }
         }
-    // mesh->communicate(f);
+    mesh->communicate(f);
     return f;
   }
 
@@ -2967,7 +2964,7 @@ protected:
 	      for (jx = 0;jx < mesh->LocalNx; jx++) {
 	        for (jy = 0;jy < mesh->LocalNy; jy++) {
             BoutReal log_out =0;
-	          BoutReal Te_tmp_loc  = Te_tmp_real(jx,jy,jz);
+	          BoutReal Te_tmp_loc  = Te_tmp_real(jx,jy);
             BoutReal logT = log(Te_tmp_loc);
             if (Te_tmp_loc >= 2.0 && Te_tmp_loc <= 500.) {
               log_out = - 5.01649969e+01 * pow(logT, 0)
@@ -3573,8 +3570,18 @@ protected:
 
     Coordinates* coord = mesh->getCoordinates();
 
-    // Ensure positivity of total variables
+    // Ensure positivity of total variables while evaluating the RHS.
+    // Keep copies so the RHS remains non-mutating with respect to evolved fields
+    // written to output/restart files.
+    Field3D Ni_saved, Ti_saved, Te_saved;
     if (nonlinear) {
+      Ni_saved.allocate();
+      Ti_saved.allocate();
+      Te_saved.allocate();
+      Ni_saved = Ni;
+      Ti_saved = Ti;
+      Te_saved = Te;
+
       Ni = field_floor(Ni, N0, 1e-10); 
       Ti = field_floor(Ti, Ti0, 1e-10); 
       Te = field_floor(Te, Te0, 1e-10); 
@@ -5091,7 +5098,7 @@ protected:
         ddt(Ti) += Grad_perp(kappa_perp_i) * Grad_perp(Ti) / N0; //NOTE(malamast): We have not included the time variation of kappa_perp_i when we substratced the equilibrium term. 
       }
 
-      if (gyroviscous && compress0 & nonlinear) {
+      if (gyroviscous && compress0 && nonlinear) {
         ddt(Ti) -= 1.333333 * Tipara3 * (Ti0 + Ti) * Vipar * b0xcv * Grad(Vipar) / B0;
       }
 
@@ -5859,6 +5866,16 @@ protected:
     //   ddt(Vipar) = 0.0;
     // }
 
+    // Restore evolved fields modified only for RHS positivity treatment above.
+    if (nonlinear) {
+      Ni = Ni_saved;
+      Ti = Ti_saved;
+      Te = Te_saved;
+      mesh->communicate(Ni);
+      mesh->communicate(Ti);
+      mesh->communicate(Te);
+    }
+
     return 0;
   }
 
@@ -6057,20 +6074,20 @@ protected:
         if (BoutReal(indx) > ixsep * PF_limit_range) {
           for (jy = mesh->yend + 1 - Sheath_width; jy < mesh->LocalNy; jy++) {
             for (jz = 0; jz < mesh->LocalNz; jz++) {
-              var(xind,jy,jz) = 2 * var(xind,jy - 1,jz) - var(xind,jy - 2,jz);
+              var_fa(xind,jy,jz) = 2 * var_fa(xind,jy - 1,jz) - var_fa(xind,jy - 2,jz);
             }
           }
         } else if (BoutReal(indx) <= ixsep * PF_limit_range) {
           for (jy = mesh->yend + 1 - Sheath_width; jy < mesh->LocalNy; jy++) {
             for (jz = 0; jz < mesh->LocalNz; jz++) {
-              var(xind,jy,jz) = var(xind,jy - 1,jz);
+              var_fa(xind,jy,jz) = var_fa(xind,jy - 1,jz);
             }
           }
         }
       } else {
         for (jy = mesh->yend + 1 - Sheath_width; jy < mesh->LocalNy; jy++) {
           for (jz = 0; jz < mesh->LocalNz; jz++) {
-            var(xind,jy,jz) = 2 * var(xind,jy - 1,jz) - var(xind,jy - 2,jz);
+            var_fa(xind,jy,jz) = 2 * var_fa(xind,jy - 1,jz) - var_fa(xind,jy - 2,jz);
           }
         }
       }
@@ -6083,21 +6100,21 @@ protected:
         if (BoutReal(indx) > ixsep * PF_limit_range) {
           for (jy = mesh->ystart - 1 + Sheath_width; jy >= 0; jy--) {
             for (jz = 0; jz < mesh->LocalNz; jz++) {
-              var(xind,jy,jz) = 2 * var(xind,jy+1,jz) + var(xind,jy+2,jz);
+              var_fa(xind,jy,jz) = 2 * var_fa(xind,jy+1,jz) - var_fa(xind,jy+2,jz);
             }
           }
         }
         if (BoutReal(indx) <= ixsep * PF_limit_range) {
           for (jy = mesh->ystart - 1 + Sheath_width; jy >= 0; jy--) {
             for (jz = 0; jz < mesh->LocalNz; jz++) {
-              var(xind,jy,jz) = var(xind,jy+1,jz);
+              var_fa(xind,jy,jz) = var_fa(xind,jy+1,jz);
             }
           }
         }
       } else {
         for (jy = mesh->ystart - 1 + Sheath_width; jy >= 0; jy--) {
           for (jz = 0; jz < mesh->LocalNz; jz++) {
-            var(xind,jy,jz) = 2 * var(xind,jy+1,jz) + var(xind,jy+2,jz);
+            var_fa(xind,jy,jz) = 2 * var_fa(xind,jy+1,jz) - var_fa(xind,jy+2,jz);
           }
         }
       }
