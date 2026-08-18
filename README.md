@@ -1,11 +1,11 @@
-# ELM-pb
+# 6F_landau
 
-Multi-rate version of ELM-pb 3-field model.
+Multi-rate version of 6-field landau model.
 
 # Building
 
 This repository includes BOUT++ as a submodule that will be built by
-default. To build elm-pb-mri with the submodule version of BOUT++,
+default. To build 6f_landau with the submodule version of BOUT++,
 downloading and linking with SUNDIALS:
 
     $ cmake . -B build -DBOUT_DOWNLOAD_SUNDIALS=ON
@@ -24,8 +24,8 @@ CMake the path to the BOUT++ `build` directory e.g.
 # Running
 
 After successfully compiling, the `build` subdirectory should contain
-the `elm-pb-mri` executable.
+the `6f_landau` executable.
 
 Execute with the following:
 
-    $ ./elm-pb-mri -d examples/nonlinear
+    $ ./6f_landau -d examples/nonlinear
